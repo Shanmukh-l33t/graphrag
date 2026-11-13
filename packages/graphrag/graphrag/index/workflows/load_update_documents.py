@@ -59,4 +59,20 @@ async def load_update_documents(
     # previous table provider has the output of the previous run
     # we'll use this to diff the input from the prior
     delta_documents = await get_delta_docs(input_documents, previous_table_provider)
+
+    deleted_titles = delta_documents.deleted_inputs["title"].astype(str).tolist()
+    if len(deleted_titles) > 0:
+        shown_titles = ", ".join(deleted_titles[:10])
+        if len(deleted_titles) > 10:
+            shown_titles += f", ... ({len(deleted_titles) - 10} more)"
+        logger.warning(
+            "The input no longer contains %d document(s) that are in the existing "
+            "index: %s. Removed documents are NOT deleted by 'graphrag update': "
+            "the removed documents and their derived text units, entities, "
+            "relationships, and community reports remain indexed and retrievable. "
+            "Run a full re-index ('graphrag index') to honor document removals.",
+            len(deleted_titles),
+            shown_titles,
+        )
+
     return delta_documents.new_inputs

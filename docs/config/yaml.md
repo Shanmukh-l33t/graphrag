@@ -125,6 +125,8 @@ This section controls the storage mechanism used by the pipeline used for export
 
 The section defines a secondary storage location for running incremental indexing, to preserve your original outputs.
 
+Note that `graphrag update` only adds documents that are new to the input. Documents removed from the input are not deleted from the index: they and their derived text units, entities, relationships, and community reports remain indexed and retrievable, and the update logs a warning when it detects removals. Run a full re-index (`graphrag index`) to honor document removals.
+
 #### Fields
 
 - `type` **file|memory|blob|cosmosdb** - The storage type to use. Default=`file`

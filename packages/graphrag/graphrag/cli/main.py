@@ -234,6 +234,8 @@ def _update_cli(
     Update an existing knowledge graph index.
 
     Applies a default output configuration (if not provided by config), saving the new index to the local file system in the `update_output` folder.
+
+    Note: update only adds documents that are new to the input. Documents removed from the input are NOT deleted from the index: they and their derived text units, entities, relationships, and community reports remain indexed and retrievable. To honor document removals (for example for data-erasure requests), run a full re-index with `graphrag index`.
     """
     from graphrag.cli.index import update_cli
 

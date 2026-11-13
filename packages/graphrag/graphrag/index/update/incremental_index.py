@@ -45,6 +45,11 @@ async def get_delta_docs(
     """
     final_docs = await table_provider.read_dataframe("documents")
 
+    # An empty input dataset (e.g. every document was removed) carries no
+    # title column; treat all previous documents as deleted in that case.
+    if "title" not in input_dataset.columns:
+        return InputDelta(input_dataset, final_docs)
+
     # Select distinct title from final docs and from dataset
     previous_docs: list[str] = final_docs["title"].unique().tolist()
     dataset_docs: list[str] = input_dataset["title"].unique().tolist()

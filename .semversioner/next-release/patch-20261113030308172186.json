@@ -1,0 +1,4 @@
+{
+  "type": "patch",
+  "description": "Warn on 'graphrag update' when documents were removed from the input instead of silently keeping them indexed."
+}
