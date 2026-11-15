@@ -1,0 +1,4 @@
+{
+  "type": "patch",
+  "description": "Fix community report extraction on flat schema guided JSON backends by parsing the completion body instead of sending a nested response format."
+}

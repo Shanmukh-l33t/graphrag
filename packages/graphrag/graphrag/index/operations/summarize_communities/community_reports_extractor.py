@@ -3,10 +3,12 @@
 
 """A module containing 'CommunityReportsResult' and 'CommunityReportsExtractor' models."""
 
+import json
 import logging
+import re
 import traceback
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
@@ -14,12 +16,16 @@ from graphrag.index.typing.error_handler import ErrorHandlerFn
 
 if TYPE_CHECKING:
     from graphrag_llm.completion import LLMCompletion
+    from graphrag_llm.types import LLMCompletionResponse
 
 logger = logging.getLogger(__name__)
 
 # these tokens are used in the prompt
 INPUT_TEXT_KEY = "input_text"
 MAX_LENGTH_KEY = "max_report_length"
+
+# a fenced code block, optionally tagged json, wrapping the report body
+_FENCE_PATTERN = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL)
 
 
 class FindingModel(BaseModel):
@@ -47,6 +53,35 @@ class CommunityReportsResult:
 
     output: str
     structured_output: CommunityReportResponse | None
+
+
+def _parse_json_response(content: str) -> dict[str, Any]:
+    """Parse the report object out of a completion body.
+
+    The body may be bare JSON, JSON inside a fenced code block, or JSON surrounded
+    by prose. Raises ValueError when no JSON object can be decoded.
+    """
+    text = content.strip()
+    candidates = [text]
+
+    fenced = _FENCE_PATTERN.search(text)
+    if fenced:
+        candidates.append(fenced.group(1))
+
+    first_brace, last_brace = text.find("{"), text.rfind("}")
+    if first_brace != -1 and last_brace > first_brace:
+        candidates.append(text[first_brace : last_brace + 1])
+
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+
+    msg = "Completion content did not contain a JSON object."
+    raise ValueError(msg)
 
 
 class CommunityReportsExtractor:
@@ -79,12 +114,13 @@ class CommunityReportsExtractor:
                 INPUT_TEXT_KEY: input_text,
                 MAX_LENGTH_KEY: str(self._max_report_length),
             })
-            response = await self._model.completion_async(
+            # No response_format: a nested model always emits top level $defs, which
+            # guided decoding backends limited to the flat JSON Schema subset reject.
+            response: LLMCompletionResponse = await self._model.completion_async(
                 messages=prompt,
-                response_format=CommunityReportResponse,  # A model is required when using json mode
-            )
+            )  # type: ignore
 
-            output = response.formatted_response  # type: ignore
+            output = CommunityReportResponse(**_parse_json_response(response.content))
         except Exception as e:
             logger.exception("error generating community report")
             self._on_error(e, traceback.format_exc(), None)
